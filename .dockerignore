@@ -1,0 +1,8 @@
+.git
+target/
+*.iml
+*.ipr
+*.iws
+.settings/
+.idea/
+.DS_Store 

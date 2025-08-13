@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - JWT_SECRET=bXlfc3VwZXJfc2VjcmV0X2tleV9mb3JfaHN1cnZleXNfZ2F0ZXdheV9zZXJ2aWNl
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - hsurveys-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - hsurveys-network
+
+networks:
+  hsurveys-network:
+    driver: bridge 

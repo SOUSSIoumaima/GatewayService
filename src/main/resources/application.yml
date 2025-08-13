@@ -1,0 +1,185 @@
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        # User Service Routes
+        - id: user-service
+          uri: http://user-service:8080
+          predicates:
+            - Path=/api/users/**,/api/auth/**,/api/roles/**,/api/permissions/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user-service
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@redisRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+            - name: JwtAuthentication
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
+        # Organization Service Routes
+        - id: organization-service
+          uri: http://organization-service:8080
+          predicates:
+            - Path=/api/organizations/**,/api/departments/**,/api/teams/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: organization-service
+                fallbackUri: forward:/fallback/organization-service
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@redisRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+            - name: JwtAuthentication
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
+        # Survey Service Routes
+        - id: survey-service
+          uri: http://survey-service:8080
+          predicates:
+            - Path=/api/surveys/**,/api/questions/**,/api/options/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: survey-service
+                fallbackUri: forward:/fallback/survey-service
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@redisRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+            - name: JwtAuthentication
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
+      default-filters:
+        - name: DedupeResponseHeader
+          args:
+            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+            strategy: RETAIN_FIRST
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:3000"
+              - "http://46.62.136.95:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+server:
+  port: 8080
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:900000}
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+      organization-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+      survey-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 4s
+      organization-service:
+        timeoutDuration: 4s
+      survey-service:
+        timeoutDuration: 4s
+
+# Redis Configuration 
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:}
+
+# Rate Limiting Configuration
+rate-limit:
+  replenish-rate: 10
+  burst-capacity: 20
+  requested-tokens: 1
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    com.hsurveys.gateway: DEBUG
+
+    org.springframework.cloud.gateway: WARN
+
+    reactor.netty: WARN
+    reactor.netty.resources: WARN
+    reactor.netty.http.client: WARN
+    reactor.netty.http.server: WARN
+
+    reactor.netty.resources.DefaultPooledConnectionProvider: WARN
+
+    io.github.resilience4j: INFO
+  
+    org.springframework.boot: INFO
+    org.springframework.web: INFO
+
+    root: INFO
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
