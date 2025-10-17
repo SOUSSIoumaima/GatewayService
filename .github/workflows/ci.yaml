@@ -9,6 +9,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   EKS_CLUSTER_NAME: craft
   EKS_REGION: us-west-2
+  NAMESPACE: nsurvey
+  HELM_RELEASE: hsurvey
+  HELM_CHART_PATH: ./hsurvey
 
 jobs:
   build-push-deploy:
@@ -57,11 +60,12 @@ jobs:
       - name: Update kubeconfig
         run: aws eks --region $EKS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME
 
-      # Upgrade Helm release with new Gateway image
+      # Deploy via Helm
       - name: Upgrade Helm release
         run: |
-          helm upgrade hsurvey ./hsurvey \
-            -n nsurvey \
-            --reuse-values \
-            --set gateway.image.repository=${{ env.REGISTRY }}/${{ github.repository }} \
-            --set gateway.image.tag=${{ steps.meta.outputs.tags }}
+          helm upgrade $HELM_RELEASE $HELM_CHART_PATH \
+            -n $NAMESPACE \
+            --install \
+            --set gateway.image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set gateway.image.tag=${{ steps.meta.outputs.tags }} \
+            --wait
