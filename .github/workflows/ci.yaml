@@ -57,9 +57,11 @@ jobs:
       - name: Update kubeconfig
         run: aws eks --region $EKS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME
 
-      #  Deploy the new image to Kubernetes
-      - name: Update deployment image
+      # Upgrade Helm release with new Gateway image
+      - name: Upgrade Helm release
         run: |
-          kubectl set image deployment/hsurvey-gateway \
-          gateway=${{ env.REGISTRY }}/${{ github.repository }}:${{ steps.meta.outputs.tags }} \
-          -n nsurvey
+          helm upgrade hsurvey ./hsurvey \
+            -n nsurvey \
+            --reuse-values \
+            --set gateway.image.repository=${{ env.REGISTRY }}/${{ github.repository }} \
+            --set gateway.image.tag=${{ steps.meta.outputs.tags }}
