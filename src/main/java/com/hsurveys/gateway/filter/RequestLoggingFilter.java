@@ -19,7 +19,7 @@ import java.util.UUID;
 public class RequestLoggingFilter implements GlobalFilter, Ordered {
 
     private static final Logger logger = LoggerFactory.getLogger(RequestLoggingFilter.class);
-    private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
+    private static final String REQUEST_ID_HEADER = "X-Request-ID";
     private static final String REQUEST_START_TIME = "request_start_time";
 
     @Override
@@ -28,23 +28,23 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
         ServerHttpResponse response = exchange.getResponse();
         
       
-        String correlationId = request.getHeaders().getFirst(CORRELATION_ID_HEADER);
-        if (correlationId == null) {
-            correlationId = UUID.randomUUID().toString();
+                String requestId = request.getHeaders().getFirst(REQUEST_ID_HEADER);
+        if (requestId == null) {
+            requestId = UUID.randomUUID().toString();
         }
         
-        final String finalCorrelationId = correlationId;
+        final String finalRequestId = requestId;
         
         
-        response.getHeaders().add(CORRELATION_ID_HEADER, finalCorrelationId);
+        response.getHeaders().add(REQUEST_ID_HEADER, finalRequestId);
         
-       
+        
         ServerHttpRequest mutatedRequest = request.mutate()
-            .header(CORRELATION_ID_HEADER, finalCorrelationId)
+            .header(REQUEST_ID_HEADER, finalRequestId)
             .build();
         
         
-        MDC.put("correlationId", finalCorrelationId);
+        MDC.put("requestId", finalRequestId);
         MDC.put("requestMethod", request.getMethod().name());
         MDC.put("requestPath", request.getPath().toString());
         
@@ -57,29 +57,29 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
             request.getHeaders().toSingleValueMap().keySet());
         
         return chain.filter(exchange.mutate().request(mutatedRequest).build())
-            .doOnSuccess(aVoid -> logResponse(exchange, finalCorrelationId))
-            .doOnError(throwable -> logError(exchange, finalCorrelationId, throwable))
+            .doOnSuccess(aVoid -> logResponse(exchange, finalRequestId))
+            .doOnError(throwable -> logError(exchange, finalRequestId, throwable))
             .doFinally(signalType -> MDC.clear());
     }
     
-    private void logResponse(ServerWebExchange exchange, String correlationId) {
+    private void logResponse(ServerWebExchange exchange, String requestId) {
         ServerHttpResponse response = exchange.getResponse();
         Instant startTime = exchange.getAttribute(REQUEST_START_TIME);
         long duration = startTime != null ? 
             Instant.now().toEpochMilli() - startTime.toEpochMilli() : 0;
         
-        logger.info("Gateway Response - Status: {}, Duration: {}ms, Correlation-ID: {}", 
+        logger.info("Gateway Response - Status: {}, Duration: {}ms, Request-ID: {}", 
             response.getStatusCode(), 
             duration, 
-            correlationId);
+            requestId);
     }
     
-    private void logError(ServerWebExchange exchange, String correlationId, Throwable throwable) {
+    private void logError(ServerWebExchange exchange, String requestId, Throwable throwable) {
         ServerHttpRequest request = exchange.getRequest();
-        logger.error("Gateway Error - Method: {}, Path: {}, Correlation-ID: {}, Error: {}", 
+        logger.error("Gateway Error - Method: {}, Path: {}, Request-ID: {}, Error: {}", 
             request.getMethod(), 
             request.getPath(),
-            correlationId,
+            requestId,
             throwable.getMessage(), 
             throwable);
     }

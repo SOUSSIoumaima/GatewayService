@@ -8,7 +8,7 @@ spring:
         - id: user-service
           uri: http://user-service:8080
           predicates:
-            - Path=/api/users/**,/api/auth/**,/api/roles/**,/api/permissions/**
+            - Path=/api/users/**,/api/auth/**,/api/roles/**,/api/permissions/**,/api/profile/**
           filters:
             - name: CircuitBreaker
               args:
@@ -19,9 +19,9 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
+            - name: SafeDedupeResponseHeader
               args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                names: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
                 strategy: RETAIN_FIRST
 
         # Organization Service Routes
@@ -39,9 +39,9 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
+            - name: SafeDedupeResponseHeader
               args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                names: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
                 strategy: RETAIN_FIRST
 
         # Survey Service Routes
@@ -59,16 +59,17 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
+            - name: SafeDedupeResponseHeader
               args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                names: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
                 strategy: RETAIN_FIRST
 
-      default-filters:
-        - name: DedupeResponseHeader
-          args:
-            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-            strategy: RETAIN_FIRST
+      # Remove default-filters to avoid conflicts with error responses
+      # default-filters:
+      #   - name: DedupeResponseHeader
+      #     args:
+      #       name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+      #       strategy: RETAIN_FIRST
 
       globalcors:
         cors-configurations:
@@ -86,6 +87,14 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
             maxAge: 3600
+      # HTTP Client Configuration
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10s
+        pool:
+          max-connections: 200
+          max-idle-time: 30s
+          max-life-time: 60s
 
 server:
   port: 8080
@@ -144,9 +153,11 @@ redis:
 
 # Rate Limiting Configuration
 rate-limit:
-  replenish-rate: 10
-  burst-capacity: 20
+  replenish-rate: 30
+  burst-capacity: 60
   requested-tokens: 1
+
+# HTTP Client Configuration for Gateway
 
 # Actuator Configuration
 management:
@@ -163,7 +174,7 @@ management:
 # Logging Configuration
 logging:
   level:
-    com.hsurveys.gateway: DEBUG
+    com.hsurveys.gateway: INFO
 
     org.springframework.cloud.gateway: WARN
 
@@ -174,12 +185,12 @@ logging:
 
     reactor.netty.resources.DefaultPooledConnectionProvider: WARN
 
-    io.github.resilience4j: INFO
+    io.github.resilience4j: WARN
   
     org.springframework.boot: INFO
-    org.springframework.web: INFO
+    org.springframework.web: WARN
 
     root: INFO
 
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{requestId:-}] %logger{36} - %msg%n"

@@ -13,7 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -144,12 +146,43 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
+
+        if (response.isCommitted()) {
+            logger.warn("Response already committed, cannot modify headers for: {}",
+                    exchange.getRequest().getURI().getPath());
+            return Mono.empty();
+        }
+
+        logger.debug("Setting error response for: {} with status: {}",
+                exchange.getRequest().getURI().getPath(), status);
+
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
-        
-        String body = String.format("{\"error\": \"%s\", \"message\": \"%s\"}", status.getReasonPhrase(), message);
-        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
+
+        Map<String, Object> errorBody = new HashMap<>();
+        errorBody.put("timestamp", java.time.LocalDateTime.now().toString());
+        errorBody.put("status", status.value());
+        errorBody.put("error", status.getReasonPhrase());
+        errorBody.put("message", message);
+        errorBody.put("details", ""); // pour correspondre à la structure complète
+
+        String body;
+        try {
+            body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorBody);
+        } catch (Exception e) {
+            logger.error("Failed to serialize error body", e);
+            body = "{\"timestamp\":\"" + java.time.LocalDateTime.now() + "\",\"status\":500,"
+                    + "\"error\":\"Internal Server Error\",\"message\":\"Failed to serialize error body\",\"details\":\"\"}";
+        }
+
+        byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(bytes)))
+                .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}",
+                        exchange.getRequest().getURI().getPath()))
+                .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
     }
+
+
 
     public static class Config {
 

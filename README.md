@@ -9,7 +9,7 @@ This is the API Gateway service for the HSurveys microservices architecture, bui
 - **Circuit Breaker**: Implements resilience patterns using Resilience4j
 - **Rate Limiting**: Redis-based rate limiting with configurable policies
 - **CORS Support**: Cross-origin resource sharing configuration
-- **Request Logging**: Comprehensive request/response logging with correlation IDs
+- **Request Logging**: Comprehensive request/response logging with request IDs
 - **Health Checks**: Actuator endpoints for monitoring
 - **Fallback Handling**: Graceful degradation when services are unavailable
 
@@ -84,7 +84,7 @@ When a valid JWT token is provided, the gateway adds the following headers to do
 ### Logging
 
 The gateway provides structured logging with:
-- Correlation IDs for request tracing
+- Request IDs for request tracing
 - Request/response timing
 - Error logging with stack traces
 - Debug logging for JWT processing
