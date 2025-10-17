@@ -61,5 +61,5 @@ jobs:
       - name: Update deployment image
         run: |
           kubectl set image deployment/hsurvey-gateway \
-            gateway=ghcr.io/horizon-school-of-digital-technologies/hsurvey_api_gateway:test-dev-update-rate-limit-31bd24c \
+            gateway=ghcr.io/horizon-school-of-digital-technologies/hsurvey_api_gateway:test-dev-update-rate-limit-2f9460f \
             -n nsurvey
